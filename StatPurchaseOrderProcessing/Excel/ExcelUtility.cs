@@ -6,7 +6,9 @@
 
     public static class ExcelUtility
     {
-        public static List<T> ReadMappedData<T, TMap>(string filePath, string delimeter) where TMap : ClassMap<T>
+        public static List<T> ReadMappedData<T, TMap>(string filePath, string delimeter) 
+            where T: class 
+            where TMap : ClassMap<T>
         {
             var config = new CsvConfiguration(CultureInfo.CurrentCulture) { Delimiter = delimeter };
 
