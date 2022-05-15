@@ -48,10 +48,10 @@
 
                 ZipFile.ExtractToDirectory(localFilePath, extractDestination);
 
-                var mappingFile = Directory.GetFiles(extractDestination)
+                var claimsFile = Directory.GetFiles(extractDestination)
                                             .First(x => Path.GetExtension(x) == ".csv");
 
-                var claimsData = ExcelUtility.GetClaimsData(mappingFile);
+                var claimsData = ExcelUtility.GetClaimsData(claimsFile);
 
                 foreach (var claim in claimsData)
                 {
@@ -66,7 +66,7 @@
                     var attachmentsFlattened = string.Empty;
                     foreach (var attachmentName in attachments)
                     {
-                        var localPath = $"{extractDestination}\\{attachmentName.Replace("/", @"\")}";
+                        var localPath = $"{extractDestination}\\{attachmentName}";
 
                         if (await UploadProcessedFile(localPath, attachmentName, claim.PurchaseOrderNumber))
                             attachmentsFlattened += $",{attachmentName}";
