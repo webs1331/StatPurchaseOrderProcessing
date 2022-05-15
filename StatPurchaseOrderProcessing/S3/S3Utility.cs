@@ -51,7 +51,7 @@
                 var claimsFile = Directory.GetFiles(extractDestination)
                                             .First(x => Path.GetExtension(x) == ".csv");
 
-                var claimsData = ExcelUtility.GetClaimsData(claimsFile);
+                var claimsData = ExcelUtility.ReadMappedData<Claim, ClaimMap>(claimsFile, "~");
 
                 foreach (var claim in claimsData)
                 {
@@ -81,7 +81,8 @@
                 }
             }
 
-            await UpdateMetaData(metaDatas);
+            if(results.S3Objects.Count > 0)
+                await UpdateMetaData(metaDatas);
 
             return;
         }
@@ -154,9 +155,7 @@
 
         private static async Task UpdateMetaData(List<MetaData> metaDatas)
         {
-            using (var writer = new StreamWriter(MetaDataLocalPath))
-            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
-                csv.WriteRecords(metaDatas);
+            ExcelUtility.WriteData(metaDatas, MetaDataLocalPath);
 
             using (var stream = new FileStream(MetaDataLocalPath, FileMode.Open))
             {
@@ -183,8 +182,7 @@
 
             using (var response = await S3Client.GetObjectAsync(request))
             using (var reader = new StreamReader(response.ResponseStream))
-            using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
-                return csv.GetRecords<MetaData>().ToList();
+                return ExcelUtility.ReadData<MetaData>(reader);
         }
 
         private static AWSCredentials GetCredentials()
