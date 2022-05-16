@@ -20,8 +20,9 @@
             }
         }
 
-        public static List<T> ReadData<T>(StreamReader reader)
+        public static List<T> ReadData<T>(Stream stream)
         {
+            using (var reader = new StreamReader(stream))
             using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 return csv.GetRecords<T>().ToList();
         }
