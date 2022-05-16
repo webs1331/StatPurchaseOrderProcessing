@@ -77,6 +77,17 @@
                 await UpdateMetaData(metaDatas);
         }
 
+        internal static void CleanTempDirectory()
+        {
+            var di = new DirectoryInfo(TempDirectory);
+
+            foreach (var file in di.GetFiles())
+                File.Delete(file.FullName);
+
+            foreach (var directory in di.GetDirectories())
+                directory.Delete(recursive: true);
+        }
+
         private static async Task<List<S3Object>> GetZipFileListObjects(List<MetaData> currentMetaDatas)
         {
             var listRequest = new ListObjectsV2Request { BucketName = BucketName };
@@ -96,17 +107,6 @@
             while (listResponse.IsTruncated);
 
             return zipFiles;
-        }
-
-        internal static void CleanTempDirectory()
-        {
-            var di = new DirectoryInfo(TempDirectory);
-
-            foreach (var file in di.GetFiles())
-                File.Delete(file.FullName);
-
-            foreach (var directory in di.GetDirectories())
-                directory.Delete(recursive: true);
         }
 
         private static async Task<bool> UploadProcessedFile(string localFilePath, string fileName, string poNumber)
