@@ -69,7 +69,6 @@
                         ExtractedFileNamesFlattened = attachmentsFlattened
                     });
                 }
-
                 CleanTempDirectory();
             }
 
