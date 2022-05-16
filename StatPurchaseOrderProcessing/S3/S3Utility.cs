@@ -21,7 +21,7 @@
 
         internal async static Task Process()
         {
-            var metaDatas = await GetProcessingMetadataAsync();
+            var metaDatas = await GetProcessingMetadata();
             var zipFiles = await GetZipFileListObjects(metaDatas);
 
             foreach (var s3Object in zipFiles)
@@ -124,7 +124,7 @@
             return true;
         }
 
-        private static async Task<List<MetaData>> GetProcessingMetadataAsync()
+        private static async Task<List<MetaData>> GetProcessingMetadata()
         {
             try
             {
@@ -141,7 +141,7 @@
                 if (e.ErrorCode == "NoSuchKey")
                 {
                     await CreateMetadata();
-                    return await GetProcessingMetadataAsync();
+                    return await GetProcessingMetadata();
                 }
                 else
                 {
