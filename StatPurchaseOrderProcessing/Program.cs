@@ -1,6 +1,5 @@
 ﻿namespace StatPurchaseOrderProcessing
 {
-    using System.Text;
     using S3;
 
     internal class Program
@@ -9,8 +8,6 @@
         {
             try
             {
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
                 await S3Utility.Process();
 
                 return 0;
