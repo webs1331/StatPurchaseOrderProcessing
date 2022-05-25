@@ -1,9 +1,9 @@
 ﻿namespace StatPurchaseOrderProcessing.Excel
 {
     using CsvHelper.Configuration;
-    using StatPurchaseOrderProcessing.S3;
+    using S3;
 
-    internal class ClaimMap : ClassMap<Claim>
+    internal sealed class ClaimMap : ClassMap<Claim>
     {
         internal ClaimMap()
         {

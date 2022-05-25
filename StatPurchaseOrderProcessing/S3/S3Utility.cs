@@ -10,19 +10,24 @@
 
     public static class S3Utility
     {
-        private static readonly string BucketName = "";
-        private static readonly string AccessKeyId = "";
-        private static readonly string Secret = "";
-        private static readonly string TempDirectory = "TempFileProcessing";
-        private static readonly string MetadataKey = "StatPurchaseOrderProcessingMetadata.csv";
-        private static readonly string MetaDataLocalPath = $"{TempDirectory}\\{MetadataKey}";
+        private const string BucketName = "TODO INITIALIZE";
+        private const string AccessKeyId = "TODO INITIALIZE";
+        private const string Secret = "TODO INITIALIZE";
+        private const string TempDirectory = "TempFileProcessing";
+        private const string MetadataKey = "StatPurchaseOrderProcessingMetadata.csv";
+        private const string MetaDataLocalPath = $"{TempDirectory}\\{MetadataKey}";
 
-        private static readonly AmazonS3Client S3Client = new AmazonS3Client(GetCredentials(), Amazon.RegionEndpoint.USEast2);
+        private static readonly AmazonS3Client S3Client;
 
-        internal async static Task Process()
+        static S3Utility()
         {
-            var metaDatas = await GetProcessingMetadata();
-            var zipFiles = await GetZipFileListObjects(metaDatas);
+            S3Client = new AmazonS3Client(GetCredentials(), Amazon.RegionEndpoint.USEast2);
+        }
+
+        internal static async Task Process()
+        {
+            var metaData = await GetProcessingMetadata();
+            var zipFiles = await GetZipFileListObjects(metaData);
 
             foreach (var s3Object in zipFiles)
             {
@@ -40,7 +45,7 @@
 
                 ZipFile.ExtractToDirectory(zipLocalFilePath, extractDestination);
 
-                var claimsFilePath = Directory.GetFiles(extractDestination).First(x => Path.GetExtension(x) == ".csv");
+                var claimsFilePath = Directory.GetFiles(extractDestination).Single(x => Path.GetExtension(x) == ".csv");
                 var claimsData = ExcelUtility.ReadMappedData<Claim, ClaimMap>(claimsFilePath, "~");
 
                 foreach (var claim in claimsData)
@@ -50,7 +55,7 @@
 
                     var attachments = claim.FileNames
                         .Split(",")
-                        .Select(x => Path.GetFileName(x))
+                        .Select(Path.GetFileName)
                         .ToArray();
 
                     var attachmentsFlattened = string.Empty;
@@ -58,11 +63,11 @@
                     {
                         var localPath = $"{extractDestination}\\{attachmentName}";
 
-                        if (await UploadProcessedFile(localPath, attachmentName, claim.PurchaseOrderNumber))
+                        if (attachmentName != null && await UploadProcessedFile(localPath, attachmentName, claim.PurchaseOrderNumber))
                             attachmentsFlattened += $",{attachmentName}";
                     }
 
-                    metaDatas.Add(new MetaData
+                    metaData.Add(new MetaData
                     {
                         ExtractDate = DateTime.Now,
                         ZipFileName = response.Key,
@@ -73,7 +78,7 @@
             }
 
             if (zipFiles.Count > 0)
-                await UpdateMetaData(metaDatas);
+                await UpdateMetaData(metaData);
         }
 
         internal static void CleanTempDirectory()
@@ -87,17 +92,17 @@
                 directory.Delete(recursive: true);
         }
 
-        private static async Task<List<S3Object>> GetZipFileListObjects(List<MetaData> currentMetaDatas)
+        private static async Task<List<S3Object>> GetZipFileListObjects(List<MetaData> currentMetaData)
         {
             var listRequest = new ListObjectsV2Request { BucketName = BucketName };
-            var listResponse = new ListObjectsV2Response();
+            ListObjectsV2Response listResponse;
             var zipFiles = new List<S3Object>();
 
             do
             {
                 listResponse = await S3Client.ListObjectsV2Async(listRequest);
 
-                listResponse.S3Objects.RemoveAll(o => currentMetaDatas.Any(md => md.ZipFileName == o.Key) || Path.GetExtension(o.Key) != ".zip");
+                listResponse.S3Objects.RemoveAll(o => currentMetaData.Any(md => md.ZipFileName == o.Key) || Path.GetExtension(o.Key) != ".zip");
 
                 zipFiles.AddRange(listResponse.S3Objects);
 
@@ -138,15 +143,10 @@
             }
             catch (AmazonS3Exception e)
             {
-                if (e.ErrorCode == "NoSuchKey")
-                {
-                    await CreateMetadata();
-                    return await GetProcessingMetadata();
-                }
-                else
-                {
-                    throw;
-                }
+                if (e.ErrorCode != "NoSuchKey") throw;
+
+                await CreateMetadata();
+                return await GetProcessingMetadata();
             }
         }
 
@@ -163,23 +163,22 @@
                 throw new Exception("Failed to create metadata");
         }
 
-        private static async Task UpdateMetaData(List<MetaData> metaDatas)
+        private static async Task UpdateMetaData(IEnumerable<MetaData> metaData)
         {
-            ExcelUtility.WriteData(metaDatas, MetaDataLocalPath);
+            ExcelUtility.WriteData(metaData, MetaDataLocalPath);
 
-            using (var stream = new FileStream(MetaDataLocalPath, FileMode.Open))
+            await using var stream = new FileStream(MetaDataLocalPath, FileMode.Open);
+
+            var response = await S3Client.PutObjectAsync(new PutObjectRequest
             {
-                var response = await S3Client.PutObjectAsync(new PutObjectRequest
-                {
-                    BucketName = BucketName,
-                    Key = MetadataKey,
-                    InputStream = stream,
-                    ContentType = "application/csv"
-                });
+                BucketName = BucketName,
+                Key = MetadataKey,
+                InputStream = stream,
+                ContentType = "application/csv"
+            });
 
-                if (response.HttpStatusCode != HttpStatusCode.OK)
-                    throw new Exception("Failed to upload metadata.");
-            }
+            if (response.HttpStatusCode != HttpStatusCode.OK)
+                throw new Exception("Failed to upload metadata.");
         }
 
         private static AWSCredentials GetCredentials()
